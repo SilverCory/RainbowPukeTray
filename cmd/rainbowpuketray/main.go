@@ -20,6 +20,16 @@ type Config struct {
 const TextTurnOn = "Turn On"
 const TextTurnOff = "Turn Off"
 
+var (
+	user32           = syscall.NewLazyDLL("User32.dll")
+	getSystemMetrics = user32.NewProc("GetSystemMetrics")
+)
+
+const (
+	SM_CXVIRTUALSCREEN uintptr = 78
+	SM_CYVIRTUALSCREEN         = 79
+)
+
 var cmd *exec.Cmd
 
 func main() {
@@ -86,31 +96,13 @@ func main() {
 
 func screenChangeRestart(config *Config, toggleItem *systray.MenuItem) {
 
-	var (
-		user32           = syscall.NewLazyDLL("User32.dll")
-		getSystemMetrics = user32.NewProc("GetSystemMetrics")
-	)
-
-	const (
-		SM_CXVIRTUALSCREEN uintptr = 78
-		SM_CYVIRTUALSCREEN         = 79
-	)
-
 	lastX, lastY := 0, 0
 	for {
 
-		x, _, err := getSystemMetrics.Call(SM_CXVIRTUALSCREEN)
-		if err != nil {
-			fmt.Println(err)
-			time.Sleep(5 * time.Second)
-		}
+		x, _, _ := getSystemMetrics.Call(SM_CXVIRTUALSCREEN)
+		y, _, _ := getSystemMetrics.Call(SM_CYVIRTUALSCREEN)
 
-		y, _, err := getSystemMetrics.Call(SM_CYVIRTUALSCREEN)
-		if err != nil {
-			fmt.Println(err)
-			time.Sleep(5 * time.Second)
-		}
-
+		fmt.Println("SCREEN SIZE (x, y): ", x, y)
 		if lastX == 0 {
 			lastX = int(x)
 		}
@@ -119,7 +111,9 @@ func screenChangeRestart(config *Config, toggleItem *systray.MenuItem) {
 		}
 
 		if lastX != int(x) || lastY != int(y) {
-			fmt.Println("SCREEN SIZE CHANGE FOUND!")
+			lastX = int(x)
+			lastY = int(y)
+			fmt.Println("SCREEN SIZE CHANGE FOUND!", x, y)
 			if config.On {
 				turnOff(toggleItem)
 				time.Sleep(100 * time.Millisecond)
