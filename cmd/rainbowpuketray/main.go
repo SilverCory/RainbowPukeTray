@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/SilverCory/RainbowPukeTray"
 	"github.com/getlantern/systray"
@@ -48,6 +49,8 @@ func main() {
 			turnOff(toggleItem)
 		}
 
+		go screenChangeRestart(&config, toggleItem)
+
 		go func() {
 			for {
 				select {
@@ -79,6 +82,53 @@ func main() {
 		folders[0].WriteFile("setting.json", data)
 	})
 
+}
+
+func screenChangeRestart(config *Config, toggleItem *systray.MenuItem) {
+
+	var (
+		user32           = syscall.NewLazyDLL("User32.dll")
+		getSystemMetrics = user32.NewProc("GetSystemMetrics")
+	)
+
+	const (
+		SM_CXVIRTUALSCREEN uintptr = 78
+		SM_CYVIRTUALSCREEN         = 79
+	)
+
+	lastX, lastY := 0, 0
+	for {
+
+		x, _, err := getSystemMetrics.Call(SM_CXVIRTUALSCREEN)
+		if err != nil {
+			fmt.Println(err)
+			time.Sleep(5 * time.Second)
+		}
+
+		y, _, err := getSystemMetrics.Call(SM_CYVIRTUALSCREEN)
+		if err != nil {
+			fmt.Println(err)
+			time.Sleep(5 * time.Second)
+		}
+
+		if lastX == 0 {
+			lastX = int(x)
+		}
+		if lastY == 0 {
+			lastY = int(y)
+		}
+
+		if lastX != int(x) || lastY != int(y) {
+			fmt.Println("SCREEN SIZE CHANGE FOUND!")
+			if config.On {
+				turnOff(toggleItem)
+				time.Sleep(100 * time.Millisecond)
+				turnOn(toggleItem)
+			}
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func turnOff(toggleItem *systray.MenuItem) {
